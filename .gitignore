@@ -1,0 +1,10 @@
+*.so
+*.png
+*.yml
+*.txt
+*.fa
+*.bed
+*.npy
+chromsizes
+output*
+data/

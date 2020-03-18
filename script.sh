@@ -7,9 +7,8 @@
 #SBATCH -c 1 #24 cores total on 1 machine. So use 6 cores for 1 task.
 #SBATCH --mem=10G
 
-#SBATCH --job-name differential
-#SBATCH --output differential-log-%J.txt
+#SBATCH --job-name negRscript
+#SBATCH --output negRscript-log-%J.txt
 
-python3 cnn.py --xtrain trainData/trainInput.npy --ytrain trainData/trainLabels.npy --xvalid trainData/validationInput.npy --yvalid trainData/validationLabels.npy --model-out output-newDrop --pool-dropout-rate 0.5
-#time Rscript newcode.R
+Rscript nullSet.R
 #time ./fileclean.sh
