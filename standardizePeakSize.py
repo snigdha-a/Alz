@@ -7,6 +7,10 @@ import tensorflow as tf
 from ucscgenome import Genome
 import csv
 import pybedtools
+from Bio import SeqIO
+import pyfasta
+import random
+import glob
 
 def oneHotEncodeSequence(sequence):
     oneHotDimension = (len(sequence), 4)
@@ -27,6 +31,7 @@ def generateOneHotEncodedSequences(peak_list, sequence_file, label_file):
     label_list = []
     final_sequences = []
     for (seq,labelseq) in peak_list:
+        # Normal sequence encoding and appending
         chromosome = seq[0]
         #extracting chromosome number from chromosomes of form chr1_KI270710v1_random
         # label = chromosome.split('chr')[1].split('_')[0]
@@ -36,59 +41,32 @@ def generateOneHotEncodedSequences(peak_list, sequence_file, label_file):
         sequence = genomeObject[chromosome][start:end]
         encodedSequence = oneHotEncodeSequence(sequence)
         final_sequences.append(encodedSequence)
+        '''Create fasta for each entry and then generate reverse
+        complement and store back in peak_map'''
+        # a = pybedtools.BedTool([ seq ]).sequence()
+        # a.save_seqs('temp.fa')
+        ofile = open("temp.fa", "w")
+        ofile.write(">" + str(seq) + "\n" +sequence + "\n")
+        ofile.close()
+        records = [rec.reverse_complement(id="rc_"+rec.id, description = "reverse complement")
+        for rec in SeqIO.parse("temp.fa", "fasta")]
+        SeqIO.write(records, "temp.fa", "fasta")
+        f = pyfasta.Fasta("temp.fa")
+        for header in f.keys():
+            sequence = str(f[header])
+            encodedSequence = oneHotEncodeSequence(sequence)
+            label_list.append(labelseq)
+            final_sequences.append(encodedSequence)
     final_sequences = np.stack(final_sequences, axis=0)
     label_list = np.stack(label_list,axis=0)
     # return final_sequences,label_list
     np.save(sequence_file, final_sequences)
     np.save(label_file, label_list)
+    # to remove the temp files created above
+    for filename in glob.glob("temp*"):
+        os.remove(filename)
 
-def _bytes_feature(value):
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
-def _progress(curr, end, message):
-    sys.stdout.write('\r>> %s %.1f%%' % (message, float(curr) / float(end) * 100.0))
-    sys.stdout.flush()
-
-def convert_train(train_seqs, train_labels):
-    num_examples, _, _ = train_seqs.shape
-    assert(num_examples == train_labels.shape[0])
-
-    filename = 'train.tfrecord'
-    num_examples_per_shard = int(math.ceil(float(num_examples) / FLAGS.num_train_shards))
-    for shard_id in range(FLAGS.num_train_shards):
-        output_filename = '%s-%.5d-of-%.5d' % (filename, shard_id, FLAGS.num_train_shards)
-        output_file = os.path.join(FLAGS.data_dir, output_filename)
-        writer = tf.python_io.TFRecordWriter(output_file)
-        start_idx = shard_id * num_examples_per_shard
-        for i in range(start_idx, min(num_examples, start_idx + num_examples_per_shard)):
-            seq = train_seqs[i,:, :]
-            label = train_labels[i,:]
-            example = tf.train.Example(features=tf.train.Features(feature={
-                'seq_raw': _bytes_feature(seq.tostring()),
-                'label_raw': _bytes_feature(label.tostring())}))
-            writer.write(example.SerializeToString())
-            _progress(i + 1, num_examples, 'Writing %s' % filename)
-        writer.close()
-    print
-
-def convert_val_test(seqs, labels, split):
-    num_examples, _, _ = seqs.shape
-    assert(num_examples == labels.shape[0])
-
-    filename = os.path.join(FLAGS.data_dir, split + '.tfrecord')
-    writer = tf.python_io.TFRecordWriter(filename)
-    for i in range(num_examples):
-        seq = seqs[i, :, :].T
-        label = labels[i, :]
-        example = tf.train.Example(features=tf.train.Features(feature={
-            'seq_raw': _bytes_feature(seq.tostring()),
-            'label_raw': _bytes_feature(label.tostring())}))
-        writer.write(example.SerializeToString())
-        _progress(i + 1, num_examples, filename)
-    writer.close()
-
-    np.save(os.path.join(FLAGS.data_dir, split + '.npy'), labels)
-    print
 
 def checkAllImb(read,all_imb_list):
     chromosome = read[0]
@@ -108,6 +86,7 @@ with open("chromsizes") as f:
         chrom_size_dict[row[0]] = row[1]
 
 #Convert all peaks to size 500 by binning
+# path = "/projects/pfenninggroup/machineLearningForComputationalBiology/gwasEnrichments/foreground/blood_scATAC-seq/reduced_clusters_snigdha/"
 path = "/projects/pfenninggroup/machineLearningForComputationalBiology/gwasEnrichments/foreground/blood_scATAC-seq/clusters/"
 #contains [chromosome,start,end] as key and 00010100 as values
 peak_map={}
@@ -163,7 +142,7 @@ for cluster in range(1,9):
 # peaks = content
 
 #Storing all training data into 1 big bed file
-pybedtools.BedTool(list(peak_map.keys())).saveas('combined.bed')
+# pybedtools.BedTool(list(peak_map.keys())).saveas('combined.bed')
 
 #check if correct sized peaks generated
 for item in peak_map:
@@ -180,15 +159,123 @@ all_imb_list=[]
 #      data_reader = csv.DictReader(mydata, delimiter='\t')
 #      for entry in data_reader:
 #          all_imb_list.append(dict(entry))
-for item in peak_map:
-    chromosome = item[0]
-    if chromosome.startswith('chr8') or chromosome.startswith('chr9'):
-        testSet.append((item,peak_map[item]))
-    elif chromosome.startswith('chr4'):
-        validationSet.append((item,peak_map[item]))
-    else:
-        # if(checkAllImb(item,all_imb_list)):
-        trainingSet.append((item,peak_map[item]))
+
+''' Multi label scenario'''
+# for item in peak_map:
+#     chromosome = item[0]
+#     if chromosome.startswith('chr8') or chromosome.startswith('chr9'):
+#         testSet.append((item,peak_map[item]))
+#     elif chromosome.startswith('chr4'):
+#         validationSet.append((item,peak_map[item]))
+#     else:
+#         # if(checkAllImb(item,all_imb_list)):
+#         trainingSet.append((item,peak_map[item]))
+
+''' This flow is for single label where peaks from other clusters are taken to
+get negatives'''
+# 1 = dendritic, 2 = monocytes, 3 = B cells
+# label_index = 1
+# # extract the positives from the big peak_map
+positiveLabel = np.ones(1, dtype=np.int)
+negative_label = np.zeros(1, dtype=np.int)
+# # dictionary with chrom as key and star,stop pairs as value to check for overlap
+# allpositives = {}
+# for item in peak_map:
+#     chromosome = item[0]
+#     if peak_map[item][label_index] == 1:
+#         if chromosome in allpositives:
+#             allpositives[chromosome].append((item[1],item[2]))
+#         else:
+#             allpositives[chromosome] = [(item[1],item[2])]
+#         if chromosome.startswith('chr8') or chromosome.startswith('chr9'):
+#             testSet.append((item, positiveLabel))
+#         elif chromosome.startswith('chr4'):
+#             validationSet.append((item, positiveLabel))
+#         else:
+#             # if(checkAllImb(item,all_imb_list)):
+#             trainingSet.append((item, positiveLabel))
+# # Get number of positives and add 2 times the number of negatives
+# positives = len(peak_map)
+# positives *= 2
+# # To ensure the negatives are random and not belonging to a particular grouping
+# # Shuffle the keys in dictionary
+# keys =  list(peak_map.keys())
+# random.shuffle(keys)
+# for item in keys:
+#     chromosome = item[0]
+#     overlap = False
+#     for interval in allpositives.get(chromosome,[]):
+#         if ((interval[0] < item[1] and item[1] < interval[1]) or
+#         (interval[0] < item[2] and item[2] < interval[1])):
+#             overlap = True
+#             break
+#     if overlap==False:
+#         if peak_map[item][label_index] == 0 and positives > 0:
+#             if chromosome.startswith('chr8') or chromosome.startswith('chr9'):
+#                 testSet.append((item, negative_label))
+#             elif chromosome.startswith('chr4'):
+#                 validationSet.append((item, negative_label))
+#             else:
+#                 trainingSet.append((item,negative_label))
+#                 positives -= 1
+
+''' This flow is to create negative set that is GC matched negative set and not
+ use differential peaks defined negatives'''
+
+# 1 = dendritic, 2 = monocytes, 3 = B cells
+# label_index = 1
+# # # Create positive bed file to feed into R Rscript
+# posSet = []
+# for item in peak_map:
+#     chromosome = item[0]
+#     if peak_map[item][label_index] == 1:
+#         posSet.append(item)
+#         if chromosome.startswith('chr8') or chromosome.startswith('chr9'):
+#             testSet.append((item, positiveLabel))
+#         elif chromosome.startswith('chr4'):
+#             validationSet.append((item, positiveLabel))
+#         else:
+#             trainingSet.append((item, positiveLabel))
+# # pybedtools.BedTool(posSet).saveas('label_'+str(label_index)+'.bed')
+# # os.system("Rscript nullSet.R label_"+ str(label_index))
+# with open("label_"+str(label_index)+"-neg.bed")as f:
+#     for line in f:
+#         negPeak = line.strip().split()
+#         chromosome = negPeak[0]
+#         # TODO: DOnt know why genNullSeqs generates 498 length negatives.
+#         item = (chromosome, negPeak[1], int(negPeak[2])+1)
+#         if chromosome.startswith('chr8') or chromosome.startswith('chr9'):
+#             testSet.append((item, negative_label))
+#         elif chromosome.startswith('chr4'):
+#             validationSet.append((item, negative_label))
+#         else:
+#             trainingSet.append((item,negative_label))
+
+''' Old data - no directionality - dendritic cells - bed files already present'''
+with open("combined2GC-neg.bed") as f:
+    for line in f:
+        negPeak = line.strip().split()
+        chromosome = negPeak[0]
+        # TODO: DOnt know why genNullSeqs generates 498 length negatives.
+        item = (chromosome, negPeak[1], int(negPeak[2])+1)
+        if chromosome.startswith('chr8') or chromosome.startswith('chr9'):
+            testSet.append((item, negative_label))
+        elif chromosome.startswith('chr4'):
+            validationSet.append((item, negative_label))
+        else:
+            trainingSet.append((item,negative_label))
+
+with open("combined2pos.bed") as f:
+    for line in f:
+        peak = line.strip().split()
+        chromosome = peak[0]
+        item = (chromosome,peak[1],peak[2])
+        if chromosome.startswith('chr8') or chromosome.startswith('chr9'):
+            testSet.append((item, positiveLabel))
+        elif chromosome.startswith('chr4'):
+            validationSet.append((item, positiveLabel))
+        else:
+            trainingSet.append((item, positiveLabel))
 
 print(len(trainingSet),len(validationSet),len(testSet))
 # Generate one hot encoding and labels
@@ -196,9 +283,5 @@ print('Started one hot encoding')
 genome_dir = '/home/eramamur/resources/genomes/hg38'
 genomeObject = Genome('hg38', cache_dir=genome_dir, use_web=False)
 generateOneHotEncodedSequences(trainingSet,'./trainInput','./trainLabels')
-# print('Begin sharding')
-# convert_train(seq,labels)
 generateOneHotEncodedSequences(validationSet,'./validationInput','./validationLabels')
-# convert_val_test(seq,labels,'val')
 generateOneHotEncodedSequences(testSet,'./testInput','./testLabels')
-# convert_val_test(seq,labels,'test')

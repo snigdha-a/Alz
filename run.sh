@@ -10,6 +10,7 @@
 #SBATCH --job-name differential
 #SBATCH --output differential-log-%J.txt
 
-python3 cnn.py --xtrain trainData/trainInput.npy --ytrain trainData/trainLabels.npy --xvalid trainData/validationInput.npy --yvalid trainData/validationLabels.npy --model-out output-newDrop --pool-dropout-rate 0.5
+#python standardizePeakSize.py
+python3 cnn.py --xtrain label1_noGC/trainInput.npy --ytrain label1_noGC/trainLabels.npy --xvalid label1_noGC/validationInput.npy --yvalid label1_noGC/validationLabels.npy --model-out output-newDrop.hdf5 --pool-dropout-rate 0.5
 #time Rscript newcode.R
 #time ./fileclean.sh

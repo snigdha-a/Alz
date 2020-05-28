@@ -1,3 +1,5 @@
+*.csv
+*.hdf5
 *.so
 *.png
 *.yml
@@ -7,4 +9,5 @@
 *.npy
 chromsizes
 output*
+.ipynb_checkpoints/
 data/

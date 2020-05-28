@@ -10,5 +10,5 @@
 #SBATCH --job-name negRscript
 #SBATCH --output negRscript-log-%J.txt
 
-Rscript nullSet.R
+Rscript nullSet.R label_1
 #time ./fileclean.sh
