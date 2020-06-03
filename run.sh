@@ -11,6 +11,7 @@
 #SBATCH --output differential-log-%J.txt
 
 #python standardizePeakSize.py
-python3 cnn.py --xtrain label1_noGC/trainInput.npy --ytrain label1_noGC/trainLabels.npy --xvalid label1_noGC/validationInput.npy --yvalid label1_noGC/validationLabels.npy --model-out output-newDrop.hdf5 --pool-dropout-rate 0.5
+python3 regression.py --xtrain label1_noGC/trainInput.npy --ytrain label1_noGC/trainLabels.npy --xvalid label1_noGC/validationInput.npy --yvalid label1_noGC/validationLabels.npy --model-out output-oldModel.hdf5 --pool-dropout-rate 0.5
+#python3 cnn.py --xtrain label1_noGC/trainInput.npy --ytrain label1_noGC/trainLabels.npy --xvalid label1_noGC/validationInput.npy --yvalid label1_noGC/validationLabels.npy --model-out output-newDrop.hdf5 --pool-dropout-rate 0.5
 #time Rscript newcode.R
 #time ./fileclean.sh

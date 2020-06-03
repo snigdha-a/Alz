@@ -93,9 +93,8 @@ class Metrics(Callback):
         if logs.get('val_accuracy') > highest_accuracy:
             highest_accuracy = logs.get('val_accuracy')
 
-        # FPR, TPR, FNR, TNR for single label
-
         return
+
 
 
 def calculating_class_weights(y_true):
@@ -242,7 +241,7 @@ def train_model(modelOut,
     model.compile(loss='binary_crossentropy', optimizer=optim, metrics=['accuracy'])#,fbeta]), ranking_loss]) #specificity_metric])
     model.summary()
     checkpointer = ModelCheckpoint(filepath=modelOut,
-                                   verbose=1, save_best_only=True, monitor='val_accuracy', mode='max')
+                                   verbose=1, save_best_only=True, monitor='val_loss', mode='min')
     earlystopper = EarlyStopping(patience=10, monitor='val_accuracy', min_delta=0, verbose=0, mode='max')
     print(X_valid.shape)
     print(Y_valid.shape)

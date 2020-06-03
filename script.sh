@@ -5,10 +5,11 @@
 #SBATCH --gres=gpu:1
 
 #SBATCH -c 1 #24 cores total on 1 machine. So use 6 cores for 1 task.
-#SBATCH --mem=10G
+#SBATCH --mem=25G
 
 #SBATCH --job-name negRscript
 #SBATCH --output negRscript-log-%J.txt
 
-Rscript nullSet.R label_1
+python signal_extraction.py
+#Rscript nullSet.R label_1
 #time ./fileclean.sh
