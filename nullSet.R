@@ -15,5 +15,4 @@ genNullSeqs(paste(args[2],'.bed',sep=""), #"combined2pos.bed",'2_hg19.bed',
   outputNegFastaFN = paste(args[2],'-neg.fa',sep=""),#'neg2GC-combined.fa','test-neg.fa',
   length_match_tol = 0, # want exact same length negatives
   xfold = 2, # twice the number of negatives
-	nMaxTrials=300)
-traceback()
+	nMaxTrials=180)
