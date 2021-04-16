@@ -12,10 +12,11 @@ import csv
 import seaborn as sns
 color = sns.color_palette()
 sns.set_style('darkgrid')
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plxt
 from scipy.stats import norm, boxcox
 from scipy.special import boxcox1p
 import collections
+import shutil
 path = '/projects/pfenninggroup/machineLearningForComputationalBiology/eramamur_stuff/satpathy_blood_scatac/'
 
 def saveClusterIndices():
@@ -109,7 +110,7 @@ def generateOneHotEncodedSequences(peak_list, sequence_file, label_file):
         '''Create fasta for each entry and then generate reverse
         complement and store back in peak_map'''
         # want more samples for higher valued peaks
-        if labelseq > 10.0000:
+        if labelseq > 1.0000:
             ofile = open("temp.fa", "w")
             ofile.write(">" + str(seq) + "\n" +sequence + "\n")
             ofile.close()
@@ -223,6 +224,69 @@ def extractCellBarcodes():
         f_outfile.close()
         print(filename," done!")
 
+def newPeaksExtract():
+    trainingSet=[]
+    testSet=[]
+    validationSet=[]
+    with open('dendritic_centered.bed', 'w') as f_outfile:
+        with open("dendritic_peaks.bed") as f1, open('dendritic_peaks_labels') as f2:
+            for item, label in zip(f1,f2):
+                label = float(label)
+                peak = item.strip().split()
+                chromosome = peak[0]
+                tuple = (chromosome, peak[1], int(peak[2])+1)
+                f_outfile.write('%s\t%d\t%d\n' % tuple)
+                if chromosome.startswith('chr8') or chromosome.startswith('chr9'):
+                    testSet.append((tuple,label))
+                elif chromosome.startswith('chr4'):
+                    validationSet.append((tuple,label))
+                else:
+                    trainingSet.append((tuple,label))
+    print('Started one hot encoding')
+    print(len(trainingSet),len(validationSet),len(testSet))
+    # generateOneHotEncodedSequences(trainingSet,'./trainInput','./trainLabels')
+    # generateOneHotEncodedSequences(validationSet,'./validationInput','./validationLabels')
+    # generateOneHotEncodedSequences(testSet,'./testInput','./testLabels')
+
+def scatePeaks(bedFile):
+    trainingSet=[]
+    testSet=[]
+    validationSet=[]
+    with open(bedFile+'_centered.bed', 'w') as f_outfile:
+        with open(bedFile+'.bed') as f1:
+            for item in f1:
+                peak = item.strip().split()
+                chromosome = peak[0]
+                # making all peaks equal size by centering around midpoint
+                start = int(peak[1])
+                end = int(peak[2])+1
+                mid = (start + end)/2
+                start = mid-250
+                end = mid + 250
+                tuple = (chromosome, start, end)
+                f_outfile.write('%s\t%d\t%d\n' % tuple)
+                label = np.log(float(peak[4]))
+                if chromosome.startswith('chr8') or chromosome.startswith('chr9'):
+                    testSet.append((tuple,label))
+                elif chromosome.startswith('chr4'):
+                    validationSet.append((tuple,label))
+                else:
+                    trainingSet.append((tuple,label))
+    print('Started one hot encoding')
+    print(len(trainingSet),len(validationSet),len(testSet))
+    generateOneHotEncodedSequences(trainingSet,bedFile+'_trainInput',bedFile+'_trainLabels')
+    generateOneHotEncodedSequences(validationSet,bedFile+'_validationInput',bedFile+'_validationLabels')
+    generateOneHotEncodedSequences(testSet,bedFile+'_testInput',bedFile+'_testLabels')
+
+def scateCompare(file):
+    l = list(map(list,zip(*[map(float,line.split()) for line in open(file)])))
+    fig, ax2 = plt.subplots(ncols=1)
+    fig.subplots_adjust(hspace=0.5, left=0.07, right=0.93)
+    ax2.plot(l[0], l[1],'r.',alpha=0.1)
+    # ax2.set_ylim(0,250)
+    fig.tight_layout()
+    fig.savefig("scateVsArchr.png")
+    plt.close()
 
 if __name__=="__main__":
     # saveClusterIndices()
@@ -238,4 +302,23 @@ if __name__=="__main__":
     # generateSingleLabelData(label_index)
 
     #To get all cell_barcodes related to cluster 10,11 - Dendritic
-    extractCellBarcodes()
+    # extractCellBarcodes()
+
+    #To take a bed and a label file to generate one hot encodedSequence
+    # newPeaksExtract()
+
+    #extract scate peaks
+    dendritic="scate.bed"
+    mono="scate_files/B_cells/peaks"
+    # for s in ['progen','basophil','cd4','cd8','dendritic','mono','nk_cells','B_cells']:
+    #     scatePeaks("scate_files/"+s+"/peaks")
+        # scatePeaks("scate_files/proper/"+s)
+        # os.mkdir("scate_files/"+s+"/fdr_0.05/negatives")
+        # for file in glob.glob("*.npy"):
+        #     shutil.move(file,"scate_files/"+s+"/fdr_0.05/negatives/")
+
+    # new archr peak generation
+    scatePeaks("Archr/Cluster3")
+    archrfile='out'
+    originalFile = 'orig_out'
+    # scateCompare(archrfile)
